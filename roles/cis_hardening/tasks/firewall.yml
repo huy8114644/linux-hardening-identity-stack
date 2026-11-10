@@ -1,0 +1,40 @@
+---
+- name: Allow management ports before enabling UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ cis_firewall_allowed_tcp_ports }}"
+  when: ansible_os_family == 'Debian'
+
+- name: Enable UFW default-deny incoming policy
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+  when: ansible_os_family == 'Debian'
+
+- name: Install dedicated nftables table
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables-security-baseline.conf
+    mode: "0600"
+    validate: nft -c -f %s
+  when: ansible_os_family == 'RedHat'
+  notify: Load nftables baseline
+
+- name: Persist nftables baseline on RHEL
+  ansible.builtin.lineinfile:
+    path: /etc/sysconfig/nftables.conf
+    line: 'include "/etc/nftables-security-baseline.conf"'
+    create: true
+    mode: "0600"
+  when: ansible_os_family == 'RedHat'
+  notify: Load nftables baseline
+
+- name: Enable nftables service
+  ansible.builtin.service:
+    name: nftables
+    enabled: true
+    state: started
+  when: ansible_os_family == 'RedHat'

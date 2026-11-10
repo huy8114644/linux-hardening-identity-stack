@@ -1,0 +1,30 @@
+stages: [validate, integration]
+variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+validate:
+  image: python:3.12
+  stage: validate
+  before_script:
+    - python -m pip install -r requirements-dev.txt
+    - ansible-galaxy collection install -r requirements.yml
+  script:
+    - ruff check identity/scripts tests
+    - pytest -q
+    - ansible-playbook --syntax-check playbooks/site.yml
+molecule:
+  image: python:3.12
+  stage: integration
+  services:
+    - name: docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  # Requires a dedicated privileged GitLab runner; never mount a production daemon.
+  tags: [docker-privileged]
+  before_script:
+    - python -m pip install -r requirements-dev.txt
+    - ansible-galaxy collection install -r requirements.yml
+  script:
+    - cd roles/cis_hardening
+    - ANSIBLE_ROLES_PATH=../../roles molecule test

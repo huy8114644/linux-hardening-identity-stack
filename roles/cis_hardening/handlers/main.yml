@@ -1,0 +1,20 @@
+---
+- name: Validate and reload ssh
+  ansible.builtin.shell: /usr/sbin/sshd -t && systemctl reload {{ cis_ssh_service_name }}
+  changed_when: true
+  when: not cis_container_mode | bool
+
+- name: Load audit rules
+  ansible.builtin.command: augenrules --load
+  changed_when: true
+  when: not cis_container_mode | bool
+
+- name: Reload sysctl
+  ansible.builtin.command: sysctl --system
+  changed_when: true
+  when: not cis_container_mode | bool
+
+- name: Load nftables baseline
+  ansible.builtin.command: nft -f /etc/nftables-security-baseline.conf
+  changed_when: true
+  when: not cis_container_mode | bool

@@ -1,0 +1,16 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Read SSH hardening configuration
+      ansible.builtin.slurp:
+        src: /etc/ssh/sshd_config.d/00-cis-baseline.conf
+      register: ssh_conf
+
+    - name: Assert core directives
+      ansible.builtin.assert:
+        that:
+          - "'PermitRootLogin no' in (ssh_conf.content | b64decode)"
+          - "'PasswordAuthentication no' in (ssh_conf.content | b64decode)"
+          - "'Port 2222' in (ssh_conf.content | b64decode)"

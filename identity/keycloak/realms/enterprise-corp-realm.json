@@ -1,0 +1,84 @@
+{
+  "realm": "enterprise-corp",
+  "displayName": "Identity Engineering Lab",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "permanentLockout": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "security-auditor"
+      },
+      {
+        "name": "platform-admin"
+      }
+    ]
+  },
+  "clientScopes": [
+    {
+      "name": "department",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "department",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "department",
+            "claim.name": "department",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "internal-portal-oidc",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "redirectUris": [
+        "http://localhost:8081/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8081"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "optionalClientScopes": [
+        "department"
+      ]
+    },
+    {
+      "clientId": "https://sp.example.invalid/metadata",
+      "enabled": true,
+      "protocol": "saml",
+      "publicClient": false,
+      "redirectUris": [
+        "https://sp.example.invalid/acs"
+      ],
+      "attributes": {
+        "saml.assertion.signature": "true",
+        "saml.server.signature": "true",
+        "saml.force.post.binding": "true",
+        "saml_assertion_consumer_url_post": "https://sp.example.invalid/acs"
+      }
+    }
+  ]
+}

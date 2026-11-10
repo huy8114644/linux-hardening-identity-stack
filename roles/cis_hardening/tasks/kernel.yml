@@ -1,0 +1,25 @@
+---
+- name: Install unused filesystem blacklist
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/50-unused-filesystems.conf
+    mode: "0644"
+    content: |
+      {% for fs in cis_disabled_filesystems %}
+      install {{ fs }} /bin/false
+      blacklist {{ fs }}
+      {% endfor %}
+
+- name: Install kernel baseline
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/60-security-baseline.conf
+    mode: "0644"
+    content: |
+      kernel.randomize_va_space = 2
+      kernel.dmesg_restrict = 1
+      fs.suid_dumpable = 0
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.default.send_redirects = 0
+      net.ipv4.tcp_syncookies = 1
+  notify: Reload sysctl

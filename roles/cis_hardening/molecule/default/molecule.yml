@@ -1,0 +1,27 @@
+---
+dependency:
+  name: galaxy
+  enabled: false
+driver:
+  name: docker
+platforms:
+  - name: test-ubuntu-2204
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    pre_build_image: true
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /lib/systemd/systemd
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      all:
+        cis_container_mode: true
+        cis_manage_ssh: true
+        cis_ssh_port: 2222
+        cis_ssh_allow_groups: [sudo, testadmin]
+        cis_apply_changes: true
+verifier:
+  name: ansible

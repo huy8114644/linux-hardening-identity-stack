@@ -1,0 +1,46 @@
+---
+- name: Validate scope and explicit authorization
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in ['Debian', 'RedHat']
+      - cis_profile in ['level1', 'level2']
+      - cis_apply_changes | bool or ansible_check_mode
+      - not cis_manage_ssh | bool or cis_ssh_allow_groups | length > 0
+      - not cis_manage_firewall | bool or cis_ssh_port in cis_firewall_allowed_tcp_ports
+    fail_msg: >-
+      Use --check first, set cis_apply_changes=true explicitly, provide an existing
+      administrative SSH group, and allow the SSH port in the firewall policy.
+
+- name: Load distribution package mapping
+  ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Refresh Debian package cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == 'Debian'
+
+- name: Install baseline packages
+  ansible.builtin.package:
+    name: "{{ cis_os_packages }}"
+    state: present
+
+- name: Configure OpenSSH
+  ansible.builtin.include_tasks: ssh.yml
+  when: cis_manage_ssh | bool
+
+- name: Configure password quality
+  ansible.builtin.include_tasks: pam.yml
+  when: cis_manage_pam | bool
+
+- name: Configure audit policy
+  ansible.builtin.include_tasks: audit.yml
+  when: cis_manage_auditd | bool
+
+- name: Configure kernel controls
+  ansible.builtin.include_tasks: kernel.yml
+  when: cis_manage_kernel | bool and not cis_container_mode | bool
+
+- name: Configure firewall
+  ansible.builtin.include_tasks: firewall.yml
+  when: cis_manage_firewall | bool and not cis_container_mode | bool

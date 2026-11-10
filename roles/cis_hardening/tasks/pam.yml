@@ -1,0 +1,34 @@
+---
+- name: Configure pwquality policy
+  ansible.builtin.copy:
+    dest: /etc/security/pwquality.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible; applies to future password changes.
+      minlen = {{ cis_pwquality_minlen }}
+      dcredit = -1
+      ucredit = -1
+      lcredit = -1
+      ocredit = -1
+      retry = 3
+      enforce_for_root
+
+- name: Enable Ubuntu password quality module
+  ansible.builtin.command: pam-auth-update --enable pwquality
+  changed_when: false
+  when: ansible_os_family == 'Debian'
+
+- name: Select supported RHEL authselect profile with faillock
+  ansible.builtin.command: authselect select sssd with-faillock
+  register: authselect_result
+  changed_when: "'Changes to the authselect configuration were applied' in authselect_result.stdout"
+  when: ansible_os_family == 'RedHat'
+
+- name: Configure failed authentication limits on RHEL
+  ansible.builtin.copy:
+    dest: /etc/security/faillock.conf
+    mode: "0644"
+    content: |
+      deny = {{ cis_faillock_deny }}
+      unlock_time = {{ cis_faillock_unlock_time }}
+  when: ansible_os_family == 'RedHat'

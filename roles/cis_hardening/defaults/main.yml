@@ -1,0 +1,18 @@
+---
+# These are selected CIS-inspired controls, not a certified benchmark profile.
+cis_apply_changes: false
+cis_profile: level1
+cis_container_mode: false
+cis_manage_ssh: true
+cis_ssh_port: 22
+# Provide at least one verified administrator group before applying SSH controls.
+cis_ssh_allow_groups: []
+cis_manage_firewall: false
+cis_firewall_allowed_tcp_ports: [22]
+cis_manage_pam: false
+cis_manage_auditd: true
+cis_manage_kernel: true
+cis_disabled_filesystems: [cramfs, freevxfs, jffs2, hfs, hfsplus, udf]
+cis_pwquality_minlen: 14
+cis_faillock_deny: 5
+cis_faillock_unlock_time: 900

@@ -1,0 +1,18 @@
+# Managed by Ansible. Verify an existing key-based admin session first.
+Port {{ cis_ssh_port }}
+PermitRootLogin no
+PasswordAuthentication no
+PermitEmptyPasswords no
+PubkeyAuthentication yes
+KbdInteractiveAuthentication no
+X11Forwarding no
+AllowTcpForwarding no
+MaxAuthTries 4
+LoginGraceTime 60
+ClientAliveInterval 300
+ClientAliveCountMax 3
+AllowGroups {{ cis_ssh_allow_groups | join(' ') }}
+{% if cis_profile == 'level2' %}
+MaxSessions 2
+AllowAgentForwarding no
+{% endif %}

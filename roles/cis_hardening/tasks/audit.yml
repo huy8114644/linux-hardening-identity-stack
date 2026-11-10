@@ -1,0 +1,19 @@
+---
+- name: Install audit rules
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-identity-baseline.rules
+    mode: "0640"
+    content: |
+      -w /etc/passwd -p wa -k identity
+      -w /etc/group -p wa -k identity
+      -w /etc/shadow -p wa -k identity
+      -w /etc/sudoers -p wa -k privilege
+      -w /etc/ssh/sshd_config -p wa -k ssh
+  notify: Load audit rules
+
+- name: Enable audit daemon on real hosts
+  ansible.builtin.service:
+    name: auditd
+    enabled: true
+    state: started
+  when: not cis_container_mode | bool

@@ -1,0 +1,13 @@
+# Dedicated table: do not flush unrelated administrator-managed rules.
+table inet security_baseline
+delete table inet security_baseline
+table inet security_baseline {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    ct state established,related accept
+    iifname "lo" accept
+    ip protocol icmp accept
+    ip6 nexthdr ipv6-icmp accept
+    tcp dport { {{ cis_firewall_allowed_tcp_ports | join(', ') }} } accept
+  }
+}

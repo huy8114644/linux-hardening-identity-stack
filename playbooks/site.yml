@@ -1,0 +1,6 @@
+---
+- name: Apply reviewed Linux hardening baseline
+  hosts: linux_hardened
+  become: true
+  roles:
+    - cis_hardening

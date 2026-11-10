@@ -1,0 +1,16 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  pre_tasks:
+    - name: Create OpenSSH runtime directory
+      ansible.builtin.file:
+        path: /run/sshd
+        state: directory
+        mode: "0755"
+    - name: Create administrative test group
+      ansible.builtin.group:
+        name: testadmin
+        state: present
+  roles:
+    - role: cis_hardening

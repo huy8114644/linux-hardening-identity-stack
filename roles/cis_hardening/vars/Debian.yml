@@ -1,0 +1,3 @@
+---
+cis_os_packages: [openssh-server, auditd, libpam-pwquality, ufw]
+cis_ssh_service_name: ssh
