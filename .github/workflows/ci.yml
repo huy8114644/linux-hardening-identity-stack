@@ -28,11 +28,9 @@ jobs:
       - name: Run make molecule
         run: |
           set -o pipefail
-          make molecule 2>&1 | tee molecule.log
-      - name: Publish Molecule Output
-        if: always()
-        run: |
-          echo "### Molecule Execution Log" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          tail -n 150 molecule.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          make molecule 2>&1 | tee /tmp/molecule.log || {
+            ERR=$(tail -n 25 /tmp/molecule.log | tr '
+' ' | ')
+            echo "::error title=MoleculeFailure::$ERR"
+            exit 1
+          }
