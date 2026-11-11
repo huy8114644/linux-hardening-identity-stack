@@ -29,10 +29,10 @@ jobs:
         run: |
           set -o pipefail
           make molecule 2>&1 | tee molecule.log
-      - name: Upload Molecule Log
+      - name: Publish Molecule Output
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: molecule-log
-          path: molecule.log
-          retention-days: 5
+        run: |
+          echo "### Molecule Execution Log" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          tail -n 150 molecule.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
