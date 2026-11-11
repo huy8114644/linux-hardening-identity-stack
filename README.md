@@ -1,128 +1,113 @@
-# Linux Hardening & Enterprise Identity Stack
+# Linux Hardening & Identity Stack
 
 [![Baseline validation](https://github.com/huy8114644/linux-hardening-identity-stack/actions/workflows/ci.yml/badge.svg)](https://github.com/huy8114644/linux-hardening-identity-stack/actions/workflows/ci.yml)
-[![Ansible: 2.17+](https://img.shields.io/badge/Ansible-2.17%2B-EE0000.svg?logo=ansible)](https://ansible.com)
-[![Keycloak: 26](https://img.shields.io/badge/Keycloak-26.3-blue.svg?logo=redhat)](https://keycloak.org)
-[![Security: CIS Inspired](https://img.shields.io/badge/Security-CIS%20Level%201%2F2-success.svg)](https://www.cisecurity.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Production-grade **Linux Infrastructure Security Hardening and Enterprise Identity Broker** combining an automated Ansible CIS Benchmark role with a containerized Keycloak 26 and OpenLDAP IAM governance stack.
+An Ansible baseline for selected Linux controls and a local Keycloak/OpenLDAP identity lab. The project addresses two practical problems: reviewing repeatable host security settings before applying them, and exploring an identity broker backed by a directory. It is a learning and validation scaffold, not a certified CIS implementation or a production identity deployment.
 
----
-
-## 🎯 Problem Statement & Core Value
-
-Operating system misconfigurations and fragmented identity stores represent primary attack vectors for lateral movement, privilege escalation, and credential stuffing.
-
-This repository provides an enterprise blueprint:
-1. **Automated OS Hardening:** CIS-inspired baseline for Ubuntu and RHEL managing SSH drop-ins, PAM password complexity, kernel sysctls, and auditd system call auditing with fail-safe opt-in guards.
-2. **Centralized Identity & Access Governance:** Keycloak 26 connected to an OpenLDAP user directory in read-only federation mode, preventing unauthorized directory tampering while enabling modern authentication.
-3. **Enterprise SSO & Token Security:** Standardized OIDC with PKCE (S256) and SAML 2.0 integration ready to plug into internal developer portals and enterprise microservices.
-
----
-
-## 🏛️ System & Identity Architecture
+## Architecture and data flow
 
 ```mermaid
-flowchart TD
-    subgraph Clients ["1. Client & Application Layer"]
-        App1[Internal Portal / Web App<br/>OIDC with PKCE S256]
-        App2[Legacy Enterprise Service<br/>SAML 2.0 Assertion]
-    end
-
-    subgraph Identity ["2. Centralized Identity Broker (Keycloak 26)"]
-        App1 & App2 --> KC[Keycloak Identity Provider<br/>Realm: enterprise-corp]
-        KC --> PG[(PostgreSQL 16<br/>Encrypted Persistence)]
-        KC -->|Read-Only Federation| LDAP[(OpenLDAP Directory<br/>ou=users, ou=groups)]
-    end
-
-    subgraph OS ["3. Linux OS Security Baseline (Ansible CIS Hardening)"]
-        Ansible[Ansible Engine<br/>roles/cis_hardening] --> TargetNode[Target Ubuntu / RHEL Host]
-        TargetNode --> SSH[SSH Drop-In Config<br/>No Root, No Passwords, Port 2222]
-        TargetNode --> PAM[PAM Password Quality<br/>pwquality & faillock]
-        TargetNode --> Audit[Auditd System Call Rules<br/>Monitor /etc/shadow & sudoers]
-        TargetNode --> Kernel[Kernel Sysctl Hardening<br/>Disable ICMP Redirects & SYN Flood]
-        TargetNode --> FW[Host Firewall<br/>UFW / nftables Baseline]
-    end
-
-    classDef dark fill:#0d1117,stroke:#238636,stroke-width:1.5px,color:#c9d1d9;
-    class Clients,Identity,OS dark;
+flowchart LR
+    Inventory[Reviewed staging inventory and cis variables] --> Playbook[Ansible site playbook]
+    Playbook --> Guard{Check mode or explicit apply opt-in}
+    Guard --> Role[Selected SSH, audit, PAM, kernel and firewall controls]
+    Role --> Host[Ubuntu or RHEL-compatible host]
+    Browser[Local browser / future test clients] -->|HTTP on loopback 8080| KC[Keycloak 26.3.3 start-dev]
+    KC --> PG[(PostgreSQL 16.10 volume)]
+    KC -->|READ_ONLY federation over plaintext LDAP| LDAP[OpenLDAP 1.5.0]
+    Reconcile[Loopback administration script] -->|Create or update LDAP component| KC
+    Realm[Imported realm JSON] --> KC
 ```
 
----
+The realm includes a public OIDC authorization-code client requiring PKCE S256, a department claim scope, and a placeholder SAML service provider. No application or sample user login is shipped. The reconciler configures user federation under `ou=people`; it does not configure a group mapper. PostgreSQL persistence uses a Docker volume; encryption at rest is not configured here. See [control scope](docs/controls.md) and [operations](docs/operations.md).
 
-## 🔒 Security Capabilities & Control Matrix
+## Local quickstart
 
-| Component | Technology | Target Setting | Mitigation Impact |
-|---|---|---|---|
-| **SSH Hardening** | OpenSSH Drop-in | `PermitRootLogin no`, `PasswordAuthentication no` | Blocks brute-force and direct root compromise |
-| **Audit Logging** | auditd rules | Watches on `/etc/shadow`, `/etc/sudoers`, `/etc/passwd` | Real-time audit trail of privilege changes |
-| **Password Quality** | pam_pwquality | `minlen=14`, `deny=5`, 15-minute lockout | Enforces high-entropy credentials |
-| **Unused Filesystems** | modprobe blacklist | Disables `cramfs`, `udf`, `squashfs` | Eliminates local privilege escalation bugs |
-| **Identity Broker** | Keycloak 26.3 | OIDC PKCE (`S256`) + SAML 2.0 | Eliminates credential sharing and insecure flows |
-| **Directory Federation** | OpenLDAP | Read-only LDAP sync with Group Mappers | Zero risk of identity provider writeback corrupting corporate LDAP |
-
----
-
-## ⚙️ Environment Variables & Configuration
-
-The Identity Stack (`identity/docker-compose/`) is configured via a generated `.env` file:
-
-| Variable | Type | Default | Description |
-|---|---|---|---|
-| `DB_PASSWORD` | String | Generated | PostgreSQL database password for Keycloak persistence |
-| `LDAP_ADMIN_PASSWORD` | String | Generated | OpenLDAP admin password (`cn=admin,dc=enterprise,dc=internal`) |
-| `KEYCLOAK_ADMIN_PASSWORD` | String | Generated | Keycloak master administrator password |
-| `KEYCLOAK_HTTP_PORT` | Integer | `8080` | Host port mapped to Keycloak service |
-| `cis_profile` | String | `level1` | CIS Benchmark hardening profile (`level1`, `level2`) |
-| `cis_apply_changes` | Boolean | `false` | Safety guard; must be explicitly `true` to mutate host settings |
-
----
-
-## 🚀 Local Developer Quickstart
-
-Standardized operational tasks are managed via the included `Makefile`:
+Requirements: Python 3.11+, Make, Docker with Compose v2, and network access to Python packages, Ansible collections and container registries. OpenLDAP's image is amd64 only; ARM needs emulation. Run from the repository root.
 
 ```bash
-# 1. Inspect all available Makefile targets
-make help
+make                 # help only; never applies host settings
+make setup           # create .venv, install development dependencies/collections
+make lint
+make test
+make plan            # Ansible syntax and Compose config validation; no host contact
+make scan            # local Gitleaks, or pinned Docker image; fails if unavailable
+```
 
-# 2. Setup Python virtual environment and Ansible collections
-make setup
+`make check` runs lint, offline tests and local configuration validation. `make molecule` additionally creates a privileged disposable Ubuntu 22.04 Docker target, tests convergence/idempotence and destroys it. Use a dedicated test daemon. It changes that container and does not establish host kernel enforcement or full CIS compliance.
 
-# 3. Run static syntax and linting checks
-make check
+To run the identity lab explicitly:
 
-# 4. Execute Molecule isolated Docker test suite (Ubuntu 22.04)
-make molecule
-
-# 5. Bootstrap local secrets and start Identity stack (Keycloak + LDAP)
-python3 identity/scripts/init_env.py
+```bash
+python3 identity/scripts/init_env.py  # creates mode-0600 .env; refuses overwrite
 make identity-up
-
-# 6. Verify Keycloak endpoints and LDAP synchronization
-set -a; source identity/docker-compose/.env; set +a
-python3 identity/scripts/reconcile_ldap.py
-python3 identity/scripts/verify_discovery.py
-
-# 7. Teardown Identity stack
-make identity-down
+# Wait for http://127.0.0.1:8080 to become ready, then bootstrap federation:
+set -a
+source identity/docker-compose/.env
+set +a
+.venv/bin/python identity/scripts/reconcile_ldap.py
+.venv/bin/python identity/scripts/verify_discovery.py
+make identity-down                  # retains named volumes
 ```
 
----
+Discovery verifies OIDC/SAML metadata only. Establish an LDAP user and complete OIDC PKCE and SAML SP login tests separately before claiming authentication works end to end. Do not publish generated credentials or command output containing them.
 
-## ☸️ Applying the OS Baseline to Real Hosts
+## Configuration
+
+Identity values are generated into `identity/docker-compose/.env` and required by Compose. There are no usable default passwords.
+
+| Variable | Default / source | Purpose |
+| --- | --- | --- |
+| `DB_PASSWORD` | Generated random value | Keycloak PostgreSQL password |
+| `LDAP_ADMIN_PASSWORD` | Generated random value | Lab LDAP administrator and federation bind password |
+| `KEYCLOAK_ADMIN_PASSWORD` | Generated random value | Keycloak bootstrap `admin` password |
+
+Keycloak binds to `127.0.0.1:8080` in Compose; there is no HTTP-port environment override. The reconciler accepts `--url` for loopback HTTP; the discovery script uses port 8080 directly.
+
+The full role inputs live in [defaults](roles/cis_hardening/defaults/main.yml). Principal settings are:
+
+| Ansible variable | Default | Meaning |
+| --- | --- | --- |
+| `cis_apply_changes` | `false` | Must be true outside Ansible check mode |
+| `cis_profile` | `level1` | `level1` or `level2`; selected settings, not complete benchmark profiles |
+| `cis_ssh_allow_groups` | `[]` | Existing administrator groups; required when SSH management is enabled |
+| `cis_ssh_port` | `22` | SSH listener port (2222 is only the Molecule example) |
+| `cis_manage_ssh` / `cis_manage_auditd` / `cis_manage_kernel` | `true` | Enable selected control families |
+| `cis_manage_pam` / `cis_manage_firewall` | `false` | Additional opt-in control families |
+| `cis_firewall_allowed_tcp_ports` | `[22]` | Must include the SSH port when firewall is managed |
+| `cis_container_mode` | `false` | Skips host kernel/firewall controls for container tests |
+| `cis_pwquality_minlen` | `14` | Password quality setting when PAM is managed |
+| `cis_faillock_deny` / `cis_faillock_unlock_time` | `5` / `900` seconds | RHEL faillock parameters; Ubuntu lockout is not configured |
+
+## CI, delivery and rollback
+
+```mermaid
+flowchart LR
+    Change[Push / PR / manual / weekly schedule] --> Checks[Setup and make check]
+    Change --> Molecule[Dedicated CI Ubuntu container test]
+    Checks --> Review[Review results and changes]
+    Molecule --> Review
+    Review --> Manual[Operator stages a chosen revision]
+    Manual --> Recovery[Snapshot and console recovery verified]
+    Recovery --> Apply[Explicit Ansible apply or local Compose startup]
+```
+
+GitHub Actions validates syntax, offline tests and Compose configuration, and runs Molecule in a separate job. GitLab has static validation and a privileged-runner integration job. Neither workflow deploys hosts or identity services; `make scan` is a local gate and is not currently wired into CI. A workflow file or badge alone is not evidence of a passing run.
+
+For host deployment, replace the empty inventory with a staging target, verify a key-based administrator group, take a VM snapshot and configuration backups, and confirm console access. Then review a host-contacting Ansible check-mode diff:
 
 ```bash
-# Dry-run check mode (no changes applied to host)
-.venv/bin/ansible-playbook playbooks/site.yml --check --diff -e '{"cis_ssh_allow_groups":["sudo"]}'
-
-# Apply hardening to staging target with explicit authorization
+.venv/bin/ansible-playbook playbooks/site.yml --limit staging --check --diff \
+  -e '{"cis_ssh_allow_groups":["sudo"]}'
+# Only after staging review and explicit operator authorization:
 .venv/bin/ansible-playbook playbooks/site.yml --limit staging \
   -e '{"cis_apply_changes":true,"cis_ssh_allow_groups":["sudo"]}'
 ```
 
----
+Check mode contacts the host and is not the offline `make plan`. Keep an existing SSH connection while verifying a new one. Rollback is manual: restore saved SSH/PAM/firewall/audit/sysctl/modprobe configuration and reload services, or restore the VM snapshot after lockout. The role has no automatic undo. RHEL VM behavior and host kernel controls need separate validation.
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+For the identity lab, `make identity-down` stops services while retaining volumes. Back up PostgreSQL and LDAP and test restoration before upgrades; checking out older code does not reverse database migrations. Realm import only initializes a missing realm, and changing `.env` does not rotate persisted passwords. Production delivery requires TLS, production Keycloak settings, a least-privilege LDAP bind, external secrets and a tested recovery process.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for review evidence. Licensed under [MIT](LICENSE).
+
+[Local validation evidence](docs/local-validation.md) records checks and untested boundaries for this documentation revision. The secret scan uses directory mode and does not audit Git history.
