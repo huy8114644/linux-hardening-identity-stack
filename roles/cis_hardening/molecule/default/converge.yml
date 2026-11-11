@@ -3,11 +3,18 @@
   hosts: all
   become: true
   pre_tasks:
+    - name: Force IPv4 for APT in container
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/99force-ipv4
+        content: 'Acquire::ForceIPv4 "true";'
+        mode: "0644"
+
     - name: Create OpenSSH runtime directory
       ansible.builtin.file:
         path: /run/sshd
         state: directory
         mode: "0755"
+
     - name: Create administrative test group
       ansible.builtin.group:
         name: testadmin
