@@ -19,9 +19,15 @@ if proc.stdout:
         lines.append(line)
 proc.wait()
 if proc.returncode != 0:
-    sys.stderr.write(os.linesep + "=== MOLECULE FAILED. LAST 20 LINES ===" + os.linesep)
-    for line in lines[-20:]:
-        sys.stderr.write(line)
-    err_text = "".join(lines[-25:]).replace(chr(13), "").replace(chr(10), "%0A")
+    sys.stderr.write(os.linesep + "=== MOLECULE FAILED. SEARCHING FOR ERRORS ===" + os.linesep)
+    fatal_lines = []
+    for i, line in enumerate(lines):
+        if "fatal:" in line.lower() or "failed:" in line.lower() or "error" in line.lower():
+            start = max(0, i - 2)
+            end = min(len(lines), i + 8)
+            fatal_lines.extend(lines[start:end])
+    if not fatal_lines:
+        fatal_lines = lines[-30:]
+    err_text = "".join(fatal_lines[:30]).replace(chr(13), "").replace(chr(10), "%0A")
     print(f"::error title=MoleculeFailure::{err_text}", flush=True)
 sys.exit(proc.returncode)
