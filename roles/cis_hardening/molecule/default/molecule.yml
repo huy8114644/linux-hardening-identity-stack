@@ -9,10 +9,6 @@ platforms:
     image: geerlingguy/docker-ubuntu2204-ansible:latest
     pre_build_image: true
     privileged: true
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    command: /lib/systemd/systemd
 provisioner:
   name: ansible
   inventory:
