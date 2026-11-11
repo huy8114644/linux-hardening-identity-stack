@@ -25,16 +25,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: make setup
-      - name: Run make molecule
-        run: |
-          set -o pipefail
-          python3 -c "
-import subprocess, sys
-res = subprocess.run(['make', 'molecule'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-print(res.stdout)
-if res.returncode != 0:
-    lines = res.stdout.strip().splitlines()[-25:]
-    msg = '%0A'.join(lines).replace('', '').replace(':', ' -')
-    print(f'::error title=MoleculeFailed::{msg}')
-    sys.exit(res.returncode)
-"
+      - name: Run Molecule test
+        run: python3 tests/ci_molecule.py
